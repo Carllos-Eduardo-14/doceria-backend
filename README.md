@@ -18,7 +18,7 @@ Projeto backend desenvolvido em PHP com MySQL.
 - Favoritos
 
 ## 🗄️ Banco de dados
-[Baixar banco de dados](./doceria.sql)
+📥 [Clique aqui para baixar o banco de dados](./doceria.sql)
 
 ## 🚀 Como rodar o projeto
 1. Importar o arquivo doceria.sql no phpMyAdmin
