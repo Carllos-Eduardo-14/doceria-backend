@@ -13,62 +13,38 @@ class Cliente {
         $this->conn = $db;
     }
 
+    // Criar cliente
     public function criar() {
-
-        // validação básica
-        if(empty($this->nome) || empty($this->email) || empty($this->senha)){
-            return ["erro" => "Dados incompletos"];
-        }
-
-        // verifica email duplicado
-        $check = $this->conn->prepare("SELECT idCliente FROM {$this->table} WHERE email = :email");
-        $check->execute([":email" => $this->email]);
-
-        if($check->rowCount() > 0){
-            return ["erro" => "Email já cadastrado"];
-        }
-
-        $senhaHash = password_hash($this->senha, PASSWORD_DEFAULT);
-
         $sql = "INSERT INTO {$this->table}
                 (nome, telefone, email, senha)
                 VALUES (:nome, :telefone, :email, :senha)";
 
         $stmt = $this->conn->prepare($sql);
 
-        $stmt->execute([
+        return $stmt->execute([
             ":nome" => $this->nome,
             ":telefone" => $this->telefone,
             ":email" => $this->email,
-            ":senha" => $senhaHash
+            ":senha" => password_hash($this->senha, PASSWORD_DEFAULT)
         ]);
-
-        return ["status" => "ok", "mensagem" => "Cliente cadastrado"];
     }
 
-    public function listar() {
-        $sql = "SELECT * FROM {$this->table}";
-        $stmt = $this->conn->query($sql);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
-
-    // LOGIN 
-    public function login($email, $senha){
-
+    // Buscar cliente por email (login)
+    public function buscarPorEmail($email) {
         $sql = "SELECT * FROM {$this->table} WHERE email = :email";
+
         $stmt = $this->conn->prepare($sql);
         $stmt->execute([":email" => $email]);
 
-        $cliente = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
 
-        if($cliente && password_verify($senha, $cliente['senha'])){
-            return [
-                "status" => "ok",
-                "cliente" => $cliente
-            ];
-        }
+    // Listar clientes
+    public function listar() {
+        $sql = "SELECT idCliente, nome, email, telefone FROM {$this->table}";
+        $stmt = $this->conn->query($sql);
 
-        return ["erro" => "Email ou senha inválidos"];
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 }
 ?>

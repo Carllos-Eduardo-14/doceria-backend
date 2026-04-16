@@ -1,123 +1,79 @@
 <?php
 session_start();
+require_once "conexaoBanco.php";
+require_once "cliente.php";
 
-include "conexaoBanco.php";
-
-header("Content-Type: application/json");
+$conn = (new Database())->conectar();
+$cliente = new Cliente($conn);
 
 $acao = $_POST["acao"] ?? "";
 
-//  CADASTRO 
-if($acao == "cadastrar"){
+// CADASTRO
+if($acao === "cadastrar"){
 
-    $nome = $_POST["nome"] ?? "";
-    $email = $_POST["email"] ?? "";
-    $senha = $_POST["senha"] ?? "";
+    $cliente->nome = $_POST["nome"] ?? "";
+    $cliente->telefone = $_POST["telefone"] ?? "";
+    $cliente->email = $_POST["email"] ?? "";
+    $cliente->senha = $_POST["senha"] ?? "";
     $confirmar = $_POST["confirmar"] ?? "";
 
-    if(empty($nome) || empty($email) || empty($senha)){
-        echo json_encode(["erro" => "Preencha todos os campos"]);
+    if(empty($cliente->nome) || empty($cliente->email) || empty($cliente->senha)){
+        echo "Preencha todos os campos";
         exit;
     }
 
-    if($senha != $confirmar){
-        echo json_encode(["erro" => "Senhas não coincidem"]);
+    if($cliente->senha !== $confirmar){
+        echo "Senhas não coincidem";
         exit;
     }
 
-    // verificar email
-    $stmt = $conn->prepare("SELECT idCliente FROM cliente WHERE email = :email");
-    $stmt->execute([":email" => $email]);
-
-    if($stmt->rowCount() > 0){
-        echo json_encode(["erro" => "Email já cadastrado"]);
+    // verificar email existente
+    $existe = $cliente->buscarPorEmail($cliente->email);
+    if($existe){
+        echo "Email já cadastrado";
         exit;
     }
 
-    $senhaHash = password_hash($senha, PASSWORD_DEFAULT);
-
-    $stmt = $conn->prepare("
-        INSERT INTO cliente (nome, email, senha)
-        VALUES (:nome, :email, :senha)
-    ");
-
-    $stmt->execute([
-        ":nome" => $nome,
-        ":email" => $email,
-        ":senha" => $senhaHash
-    ]);
-
-    echo json_encode([
-        "status" => "ok",
-        "mensagem" => "Cadastro realizado com sucesso"
-    ]);
-    exit;
+    if($cliente->criar()){
+        echo "Cadastro realizado com sucesso";
+    } else {
+        echo "Erro ao cadastrar";
+    }
 }
 
-//  LOGIN 
-if($acao == "login"){
+// LOGIN
+if($acao === "login"){
 
     $email = $_POST["email"] ?? "";
     $senha = $_POST["senha"] ?? "";
 
     if(empty($email) || empty($senha)){
-        echo json_encode(["erro" => "Preencha tudo"]);
+        echo "Preencha tudo";
         exit;
     }
 
-    $stmt = $conn->prepare("SELECT * FROM cliente WHERE email = :email");
-    $stmt->execute([":email" => $email]);
-
-    $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+    $usuario = $cliente->buscarPorEmail($email);
 
     if(!$usuario){
-        echo json_encode(["erro" => "Usuário não encontrado"]);
+        echo "Usuário não encontrado";
         exit;
     }
 
     if(!password_verify($senha, $usuario["senha"])){
-        echo json_encode(["erro" => "Senha incorreta"]);
+        echo "Senha incorreta";
         exit;
     }
 
+    // cria sessão
     $_SESSION["usuario_id"] = $usuario["idCliente"];
     $_SESSION["usuario_nome"] = $usuario["nome"];
 
-    echo json_encode([
-        "status" => "ok",
-        "mensagem" => "Login realizado com sucesso"
-    ]);
-    exit;
+    echo "Login realizado com sucesso";
 }
 
-//  LOGOUT 
-if($acao == "logout"){
+// LOGOUT
+if($acao === "logout"){
     session_destroy();
-
-    echo json_encode([
-        "status" => "ok",
-        "mensagem" => "Logout realizado"
-    ]);
-    exit;
+    echo "Logout realizado";
 }
 ?>
-
-<form action="clienteController.php" method="POST">
-    <input type="hidden" name="acao" value="cadastrar">
-
-    <input type="text" name="nome" placeholder="Nome" required>
-    <input type="email" name="email" placeholder="Email" required>
-    <input type="password" name="senha" placeholder="Senha" required>
-    <input type="password" name="confirmar" placeholder="Confirmar senha" required>
-    
-    <button type="submit">Cadastrar</button>
-</form>
-
-<form action="clienteController.php" method="POST">
-    <input type="hidden" name="acao" value="login">
-
-    <input type="email" name="email" placeholder="Email" required>
-    <input type="password" name="senha" placeholder="Senha" required>
-
-    <button type="submit">Entrar</button>
-</form>

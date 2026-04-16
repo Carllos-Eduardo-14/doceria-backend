@@ -1,49 +1,40 @@
 <?php
-require_once "../config/Database.php";
-require_once "../models/Avaliacao.php";
+session_start();
+require_once "conexaoBanco.php";
+require_once "avaliacao.php";
 
-header("Content-Type: application/json");
+header("Content-Type: application/json; charset=UTF-8");
 
-$db = (new Database())->conectar();
-$avaliacao = new Avaliacao($db);
+$conn = (new Database())->conectar();
+$avaliacao = new Avaliacao($conn);
 
-$metodo = $_SERVER['REQUEST_METHOD'];
+// POST → enviar avaliação
+if($_SERVER["REQUEST_METHOD"] === "POST"){
 
-if($metodo === "POST"){
+    if(!isset($_SESSION["usuario_id"])){
+        echo json_encode(["status"=>"erro","msg"=>"Faça login"]);
+        exit;
+    }
 
     $data = json_decode(file_get_contents("php://input"), true);
 
-    // VALIDAÇÃO
-    if(
-        empty($data['idProduto']) ||
-        empty($data['idCliente']) ||
-        empty($data['nota'])
-    ){
-        echo json_encode(["erro" => "Dados incompletos"]);
-        exit;
-    }
-
-    // EXECUTA
-    $resultado = $avaliacao->criar(
+    $avaliacao->criar(
         $data['idProduto'],
-        $data['idCliente'],
+        $_SESSION["usuario_id"],
         $data['nota'],
-        $data['comentario'] ?? ""
+        $data['comentario']
     );
 
-    // RETORNA RESULTADO REAL
-    echo json_encode($resultado);
-    exit;
+    echo json_encode([
+        "status" => "sucesso",
+        "msg" => "Agradecemos sua Avaliação ⭐"
+    ]);
 }
 
-if($metodo === "GET"){
+// GET → listar avaliações
+if($_SERVER["REQUEST_METHOD"] === "GET"){
 
-    if(!isset($_GET['idProduto'])){
-        echo json_encode(["erro" => "Produto não informado"]);
-        exit;
-    }
-
-    $idProduto = $_GET['idProduto'];
+    $idProduto = $_GET['idProduto'] ?? 0;
 
     $lista = $avaliacao->listarPorProduto($idProduto);
     $media = $avaliacao->media($idProduto);
@@ -52,6 +43,5 @@ if($metodo === "GET"){
         "media" => $media,
         "avaliacoes" => $lista
     ]);
-    exit;
 }
 ?>

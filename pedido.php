@@ -1,6 +1,4 @@
 <?php
-session_start();
-
 class Pedido {
     private $conn;
 
@@ -8,77 +6,73 @@ class Pedido {
         $this->conn = $db;
     }
 
-    public function criar($idCliente, $carrinho, $dataEntrega, $horaEntrega, $obs, $tipoEntrega, $endereco, $taxaEntrega, $metodoPagamento){
-
-        if(empty($carrinho)){
-            return ["erro" => "Carrinho vazio"];
-        }
-
-        if(empty($dataEntrega) || empty($horaEntrega)){
-            return ["erro" => "Escolha data e horário"];
-        }
-
-        $horaMin = "13:00";
-        $horaMax = "22:00";
-
-        if($horaEntrega < $horaMin || $horaEntrega > $horaMax){
-            return ["erro" => "Horário inválido"];
-        }
-
-        $this->conn->beginTransaction();
+    public function criar($idCliente, $carrinho, $dataEntrega, $horaEntrega, $obs, $tipoEntrega, $endereco, $taxaEntrega){
 
         try {
+            $this->conn->beginTransaction();
 
+            // calcular total dos produtos
             $total = 0;
+
             foreach($carrinho as $item){
-                $total += $item['preco'] * $item['quantidade'];
+                $total += $item["preco"] * $item["quantidade"];
             }
 
+            // soma frete
+            $total += $taxaEntrega;
+
+            // inserir pedido
             $sql = "INSERT INTO pedido 
-            (idCliente, dataPedido, dataEntrega, horaEntrega, status, valorTotal, observacao, tipoEntrega, enderecoEntrega, taxaEntrega, metodoPagamento)
-            VALUES (:cliente, NOW(), :dataEntrega, :horaEntrega, 'PENDENTE', :total, :obs, :tipo, :endereco, :taxa, :pagamento)";
+                    (idCliente, dataEntrega, horaEntrega, observacao, tipoEntrega, endereco, taxaEntrega, valorTotal, status)
+                    VALUES 
+                    (:cliente, :data, :hora, :obs, :tipo, :endereco, :taxa, :total, 'PENDENTE')";
 
             $stmt = $this->conn->prepare($sql);
+
             $stmt->execute([
                 ":cliente" => $idCliente,
-                ":dataEntrega" => $dataEntrega,
-                ":horaEntrega" => $horaEntrega,
-                ":total" => $total,
+                ":data" => $dataEntrega,
+                ":hora" => $horaEntrega,
                 ":obs" => $obs,
                 ":tipo" => $tipoEntrega,
                 ":endereco" => $endereco,
                 ":taxa" => $taxaEntrega,
-                ":pagamento" => $metodoPagamento
+                ":total" => $total
             ]);
 
             $idPedido = $this->conn->lastInsertId();
 
+            // inserir itens do pedido
             foreach($carrinho as $item){
                 $sqlItem = "INSERT INTO itemPedido 
-                (idPedido, idProduto, quantidade, subtotal)
-                VALUES (:pedido, :produto, :qtd, :subtotal)";
+                            (idPedido, idProduto, quantidade, preco)
+                            VALUES (:pedido, :produto, :qtd, :preco)";
 
-                $this->conn->prepare($sqlItem)->execute([
+                $stmtItem = $this->conn->prepare($sqlItem);
+
+                $stmtItem->execute([
                     ":pedido" => $idPedido,
-                    ":produto" => $item['idProduto'],
-                    ":qtd" => $item['quantidade'],
-                    ":subtotal" => $item['preco'] * $item['quantidade']
+                    ":produto" => $item["idProduto"],
+                    ":qtd" => $item["quantidade"],
+                    ":preco" => $item["preco"]
                 ]);
             }
 
             $this->conn->commit();
 
-            unset($_SESSION["carrinho"]);
-
             return [
-                "status" => "ok",
-                "pedido" => $idPedido,
+                "status" => "sucesso",
+                "idPedido" => $idPedido,
                 "total" => $total
             ];
 
-        } catch(Exception $e){
+        } catch (Exception $e) {
             $this->conn->rollBack();
-            return ["erro" => $e->getMessage()];
+
+            return [
+                "status" => "erro",
+                "mensagem" => $e->getMessage()
+            ];
         }
     }
 }

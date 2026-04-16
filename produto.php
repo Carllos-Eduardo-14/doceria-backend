@@ -7,7 +7,7 @@ class Produto {
         $this->conn = $db;
     }
 
-    // LISTAR PRODUTOS
+    // Listar produtos com média de avaliação
     public function listar(){
         try {
             $sql = "SELECT 
@@ -16,66 +16,46 @@ class Produto {
                         p.descricao,
                         p.preco,
                         p.estoque,
-                        c.nome AS categoria,
-                        ROUND(COALESCE(AVG(a.nota), 0), 1) AS media
+                        COALESCE(AVG(a.nota), 0) AS media
                     FROM produto p
-                    LEFT JOIN categoria c 
-                        ON p.idCategoria = c.idCategoria
                     LEFT JOIN avaliacao a 
                         ON p.idProduto = a.idProduto
-                    GROUP BY p.idProduto";
+                    GROUP BY 
+                        p.idProduto, p.nome, p.descricao, p.preco, p.estoque";
 
             $stmt = $this->conn->prepare($sql);
             $stmt->execute();
 
-            $produtos = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-            // formatar preço
-            foreach($produtos as &$p){
-                $p["preco"] = number_format($p["preco"], 2, ',', '.');
-            }
-
-            return [
-                "status" => "ok",
-                "produtos" => $produtos
-            ];
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         } catch (PDOException $e) {
-            return ["erro" => "Erro ao listar produtos"];
+            return [];
         }
     }
 
-    // CRIAR PRODUTO
-    public function criar($nome, $descricao, $preco, $idCategoria, $estoque){
+    // Criar produto
+    public function criar($nome, $descricao, $preco, $estoque){
         try {
-
-            if(!is_numeric($preco) || $preco <= 0){
-                return ["erro" => "Preço inválido"];
-            }
-
             $sql = "INSERT INTO {$this->table}
-                    (nome, descricao, preco, idCategoria, estoque)
-                    VALUES (:nome, :descricao, :preco, :categoria, :estoque)";
+                    (nome, descricao, preco, estoque)
+                    VALUES (:nome, :descricao, :preco, :estoque)";
 
             $stmt = $this->conn->prepare($sql);
 
-            $stmt->execute([
+            return $stmt->execute([
                 ":nome" => $nome,
                 ":descricao" => $descricao,
                 ":preco" => $preco,
-                ":categoria" => $idCategoria,
                 ":estoque" => $estoque
             ]);
 
-            return ["status" => "ok"];
-
         } catch (PDOException $e) {
-            return ["erro" => "Erro ao criar produto"];
+            return false;
         }
     }
 
-    // BUSCAR PRODUTOS
-    public function buscar($termo = '', $idCategoria = ''){
+    // Buscar produtos por nome
+    public function buscar($termo = ''){
         try {
             $sql = "SELECT 
                         p.idProduto,
@@ -83,43 +63,23 @@ class Produto {
                         p.descricao,
                         p.preco,
                         p.estoque,
-                        ROUND(COALESCE(AVG(a.nota), 0), 1) AS media
+                        COALESCE(AVG(a.nota), 0) AS media
                     FROM produto p
                     LEFT JOIN avaliacao a 
                         ON p.idProduto = a.idProduto
-                    WHERE 1=1";
-
-            $params = [];
-
-            if(!empty($termo)){
-                $sql .= " AND p.nome LIKE :termo";
-                $params[":termo"] = "%$termo%";
-            }
-
-            if(!empty($idCategoria)){
-                $sql .= " AND p.idCategoria = :categoria";
-                $params[":categoria"] = $idCategoria;
-            }
-
-            $sql .= " GROUP BY p.idProduto";
+                    WHERE p.nome LIKE :termo
+                    GROUP BY 
+                        p.idProduto, p.nome, p.descricao, p.preco, p.estoque";
 
             $stmt = $this->conn->prepare($sql);
-            $stmt->execute($params);
+            $stmt->execute([
+                ":termo" => "%$termo%"
+            ]);
 
-            $produtos = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-            // formatar preço
-            foreach($produtos as &$p){
-                $p["preco"] = number_format($p["preco"], 2, ',', '.');
-            }
-
-            return [
-                "status" => "ok",
-                "produtos" => $produtos
-            ];
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         } catch (PDOException $e) {
-            return ["erro" => "Erro na busca"];
+            return [];
         }
     }
 }
