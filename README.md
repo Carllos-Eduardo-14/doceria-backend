@@ -1,6 +1,3 @@
-# doceria-backend
-Sistema de doceria com pedidos, pagamento e WhatsApp
-
 # 🍰 Sistema de Doceria
 
 Projeto backend desenvolvido em PHP com MySQL.
@@ -16,9 +13,6 @@ Projeto backend desenvolvido em PHP com MySQL.
 - Integração com WhatsApp
 - Avaliações
 - Favoritos
-
-## 🗄️ Banco de dados
-📥 [Clique aqui para baixar o banco de dados](./doceria.sql)
 
 ## 🚀 Como rodar o projeto
 1. Importar o arquivo doceria.sql no phpMyAdmin
