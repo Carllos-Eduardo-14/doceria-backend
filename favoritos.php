@@ -1,68 +1,78 @@
 <?php
 session_start();
-require_once "conexaoBanco.php";
+include "conexaoBanco.php";
 
-header("Content-Type: application/json; charset=UTF-8");
+header("Content-Type: application/json");
 
-// verifica login
-if(!isset($_SESSION["usuario_id"])){
-    echo json_encode(["status"=>"erro","msg"=>"Faça login"]);
-    exit;
-}
-
-// conexão
 $conn = (new Database())->conectar();
 
-$idCliente = $_SESSION["usuario_id"];
-$idProduto = $_POST["idProduto"] ?? 0;
+$idCliente = $_SESSION["usuario_id"] ?? null;
+$idProduto = $_POST["idProduto"] ?? null;
 
-if(!$idProduto){
-    echo json_encode(["status"=>"erro","msg"=>"Produto inválido"]);
+// validação
+if(!$idCliente){
+    echo json_encode(["erro" => "Faça login"]);
     exit;
 }
 
-// verifica se já existe
-$stmt = $conn->prepare("
-    SELECT * FROM favoritos 
-    WHERE idCliente = :cliente AND idProduto = :produto
-");
+if(!$idProduto){
+    echo json_encode(["erro" => "Produto inválido"]);
+    exit;
+}
 
-$stmt->execute([
-    ":cliente" => $idCliente,
-    ":produto" => $idProduto
-]);
+try {
 
-// TOGGLE
-if($stmt->rowCount() > 0){
-
-    // remover
-    $conn->prepare("
-        DELETE FROM favoritos 
+    // verifica se já existe
+    $check = $conn->prepare("
+        SELECT * FROM favoritos 
         WHERE idCliente = :cliente AND idProduto = :produto
-    ")->execute([
+    ");
+    $check->execute([
         ":cliente" => $idCliente,
         ":produto" => $idProduto
     ]);
 
+    if($check->rowCount() > 0){
+
+        // remove
+        $del = $conn->prepare("
+            DELETE FROM favoritos 
+            WHERE idCliente = :cliente AND idProduto = :produto
+        ");
+
+        $del->execute([
+            ":cliente" => $idCliente,
+            ":produto" => $idProduto
+        ]);
+
+        echo json_encode([
+            "status" => "removido",
+            "mensagem" => "Removido dos favoritos"
+        ]);
+
+    } else {
+
+        // adiciona
+        $add = $conn->prepare("
+            INSERT INTO favoritos (idCliente, idProduto)
+            VALUES (:cliente, :produto)
+        ");
+
+        $add->execute([
+            ":cliente" => $idCliente,
+            ":produto" => $idProduto
+        ]);
+
+        echo json_encode([
+            "status" => "adicionado",
+            "mensagem" => "Adicionado aos favoritos"
+        ]);
+    }
+
+} catch(Exception $e){
+
     echo json_encode([
-        "status" => "removido",
-        "msg" => "Removido dos favoritos"
-    ]);
-
-} else {
-
-    // adicionar
-    $conn->prepare("
-        INSERT INTO favoritos (idCliente, idProduto) 
-        VALUES (:cliente, :produto)
-    ")->execute([
-        ":cliente" => $idCliente,
-        ":produto" => $idProduto
-    ]);
-
-    echo json_encode([
-        "status" => "adicionado",
-        "msg" => "Adicionado aos favoritos ❤️"
+        "erro" => "Erro ao processar favorito"
     ]);
 }
 ?>
